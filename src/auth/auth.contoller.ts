@@ -14,24 +14,24 @@ import {
 import { AuthLoginDTO } from './dto/auth-login.dto';
 import { AuthRegisterDTO } from './dto/auth-register.dto';
 import { AuthForgetDto } from './dto/auth-forget.dto';
-import { USerService } from 'src/user/user.service';
+
 import { AuthService } from './auth.service';
 import { AuthResetDTO } from './dto/auth-reset.dto';
-import { AuthGuard } from 'src/guards/auth.guard';
-import { User } from 'src/decorators/user.decorator';
+
 import {
   FileFieldsInterceptor,
   FileInterceptor,
   FilesInterceptor,
 } from '@nestjs/platform-express';
 
-import { join } from 'path';
-import { FilesService } from 'src/file/file.service';
+import { User } from '../decorators/user.decorator';
+import { AuthGuard } from '../guards/auth.guard';
+import { FilesService } from '../file/file.service';
+import { UserEntity } from '../user/entity/user.entity';
 
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly userService: USerService,
     private readonly authService: AuthService,
     private readonly fileService: FilesService,
   ) {}
@@ -58,8 +58,8 @@ export class AuthController {
 
   @UseGuards(AuthGuard)
   @Post('me')
-  async me(@User(['email', 'id']) { email, id }) {
-    return { email, id };
+  async me(@User() user: UserEntity) {
+    return user;
   }
 
   // No FileInterceptor, utilizamos como parâmetro o nome do valor do campo da requisição
@@ -67,7 +67,7 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Post('photo')
   async uploadPhoto(
-    @User() user,
+    @User() user: UserEntity,
     @UploadedFile(
       new ParseFilePipe({
         validators: [
@@ -78,22 +78,15 @@ export class AuthController {
     )
     photo: Express.Multer.File,
   ) {
-    const path = join(
-      __dirname,
-      '..',
-      '..',
-      'storage',
-      'photos',
-      `photo-${user.id}.png`,
-    );
+    const fileName = `photo-${user.id}.png`;
 
     try {
-      await this.fileService.upload(photo, path);
+      await this.fileService.upload(photo, fileName);
     } catch (error) {
       throw new BadRequestException(error);
     }
 
-    return { sucess: true };
+    return photo;
   }
 
   @UseInterceptors(FilesInterceptor('files'))
